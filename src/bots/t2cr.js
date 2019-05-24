@@ -16,9 +16,13 @@ module.exports = async (web3, twitterClient, mongoClient) => {
     _t2cr.abi,
     process.env.T2CR_CONTRACT_ADDRESS
   )
-  const badgeInstance = new web3.eth.Contract(
+  const ethfinexBadgeInstance = new web3.eth.Contract(
     _address.abi,
-    process.env.BADGE_CONTRACT_ADDRESS
+    process.env.ETHFINEX_BADGE_ADDRESS
+  )
+  const erc20BadgeInstance = new web3.eth.Contract(
+    _address.abi,
+    process.env.ERC20_BADGE_ADDRESS
   )
   const athenaInstance = new web3.eth.Contract(
     _athena.abi,
@@ -29,7 +33,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
     const ethString = web3.utils.fromWei(weiAmount)
     // only show up to 4 decimal places worth
     const splitAmounts = ethString.split('.')
-    return splitAmounts[0] + '.' + (splitAmounts[1] ? splitAmounts[1].substr(0,2) : '')
+    return splitAmounts[0] + '.' + (splitAmounts[1] ? splitAmounts[1].substr(0,2) : '0')
   }
 
   // connect to the right collection
@@ -57,7 +61,11 @@ module.exports = async (web3, twitterClient, mongoClient) => {
       fromBlock: lastBlock,
       toBlock: currentBlock
     })
-    badgeEvents = await badgeInstance.getPastEvents('allEvents', {
+    badgeEvents = await ethfinexBadgeInstance.getPastEvents('allEvents', {
+      fromBlock: lastBlock,
+      toBlock: currentBlock
+    })
+    erc20badgeEvents = await erc20BadgeInstance.getPastEvents('allEvents', {
       fromBlock: lastBlock,
       toBlock: currentBlock
     })
@@ -228,7 +236,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
         await db.findOneAndUpdate({tokenID}, {$set: {lastTweetID: tweetID}}, { upsert: true })
     }
 
-    // BADGES
+    // ETHFINEX BADGE
     for (const eventLog of badgeEvents) {
       let tweet
       let in_reply_to_status_id
@@ -238,12 +246,12 @@ module.exports = async (web3, twitterClient, mongoClient) => {
       try {
         if (eventLog.event === 'AddressStatusChange') {
           // get base deposits
-          const extraData = await badgeInstance.methods.arbitratorExtraData().call()
+          const extraData = await ethfinexBadgeInstance.methods.arbitratorExtraData().call()
           const arbitrationCost = await athenaInstance.methods.arbitrationCost(extraData).call()
-          const divisor = await badgeInstance.methods.MULTIPLIER_DIVISOR().call()
-          const sharedStakeMultiplier = await badgeInstance.methods.sharedStakeMultiplier().call()
-          const challengerBaseDeposit = await badgeInstance.methods.challengerBaseDeposit().call()
-          const requesterBaseDeposit = await badgeInstance.methods.requesterBaseDeposit().call()
+          const divisor = await ethfinexBadgeInstance.methods.MULTIPLIER_DIVISOR().call()
+          const sharedStakeMultiplier = await ethfinexBadgeInstance.methods.sharedStakeMultiplier().call()
+          const challengerBaseDeposit = await ethfinexBadgeInstance.methods.challengerBaseDeposit().call()
+          const requesterBaseDeposit = await ethfinexBadgeInstance.methods.requesterBaseDeposit().call()
           const sharedDepositBase = web3.utils.toBN(arbitrationCost).mul(web3.utils.toBN(sharedStakeMultiplier)).div(web3.utils.toBN(divisor))
           const challengerWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(challengerBaseDeposit))
           const requesterWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(requesterBaseDeposit))
@@ -310,7 +318,6 @@ module.exports = async (web3, twitterClient, mongoClient) => {
                 })
 
                 const shortenedTokenLink = await bitly.shorten(`https://etherscan.io/token/${token.addr}`)
-                const shortenedGuidlines = await bitly.shorten(`https://ipfs.kleros.io/ipfs/QmVzwEBpGsbFY3UgyjA3SxgGXx3r5gFGynNpaoXkp6jenu/Ethfinex%20Court%20Policy.pdf`)
                 tweet = await twitterClient.post('statuses/update', {
                   status: `${token.name} has requested an Ethfinex Compliant Badge. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
@@ -383,6 +390,159 @@ module.exports = async (web3, twitterClient, mongoClient) => {
         await db.findOneAndUpdate({tokenID}, {$set: {lastTweetID: tweetID}}, { upsert: true })
     }
 
+    // ERC20 BADGE
+    for (const eventLog of erc20badgeEvents) {
+      let tweet
+      let in_reply_to_status_id
+      let tokenID
+      let tweetID
+
+      try {
+        if (eventLog.event === 'AddressStatusChange') {
+          // get base deposits
+          const extraData = await erc20BadgeInstance.methods.arbitratorExtraData().call()
+          const arbitrationCost = await athenaInstance.methods.arbitrationCost(extraData).call()
+          const divisor = await erc20BadgeInstance.methods.MULTIPLIER_DIVISOR().call()
+          const sharedStakeMultiplier = await erc20BadgeInstance.methods.sharedStakeMultiplier().call()
+          const challengerBaseDeposit = await erc20BadgeInstance.methods.challengerBaseDeposit().call()
+          const requesterBaseDeposit = await erc20BadgeInstance.methods.requesterBaseDeposit().call()
+          const sharedDepositBase = web3.utils.toBN(arbitrationCost).mul(web3.utils.toBN(sharedStakeMultiplier)).div(web3.utils.toBN(divisor))
+          const challengerWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(challengerBaseDeposit))
+          const requesterWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(requesterBaseDeposit))
+          address = eventLog.returnValues._address
+
+          const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
+          tokenID = tokenQuery.values[0]
+          const token = await t2crInstance.methods.tokens(tokenID).call()
+
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ERC20_BADGE_ID}/${address}`)
+          // look up to see if this token_id already has a thread
+          const tokenThread = await db.findOne({tokenID})
+          if (tokenThread)
+            in_reply_to_status_id = await tokenThread.lastTweetID
+          if (eventLog.returnValues._status === "0") {
+            tweet = await twitterClient.post('statuses/update', {
+              status: `${token.name} has been denied the ERC20 Compliant Badge. ${
+                eventLog.returnValues._disputed ?
+                `The challenger has won the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH`
+                : ''
+              }`,
+              in_reply_to_status_id,
+              auto_populate_reply_metadata: true
+            })
+            tweetID = tweet.data.id_str
+          }
+          else if (eventLog.returnValues._status == "1") {
+            if (in_reply_to_status_id) {
+              tweet = await twitterClient.post('statuses/update', {
+                status: `${token.name} has been awarded the ERC20 Compliant Badge. ${
+                  eventLog.returnValues._disputed ?
+                  `The submitter has taken the challengers deposit of ${prettyWeiToEth(challengerWinnableDeposit)} ETH`
+                  : ''
+                }`,
+                in_reply_to_status_id,
+                auto_populate_reply_metadata: true
+              })
+            }
+            tweetID = tweet.data.id_str
+          }
+          else {
+            if (eventLog.returnValues._disputed && !eventLog.returnValues._appealed) {
+              tweet = await twitterClient.post('statuses/update', {
+                status: `ERC20 Compliant Badge Challenged! ${token.name} is headed to court`,
+                in_reply_to_status_id,
+                auto_populate_reply_metadata: true
+              })
+              tweetID = tweet.data.id_str
+            }
+            else if (eventLog.returnValues._disputed && eventLog.returnValues._appealed) {
+              tweet = await twitterClient.post('statuses/update', {
+                status: `The ruling on the ERC20 Compliant Badge for ${token.name} has been appealed.`,
+                in_reply_to_status_id,
+                auto_populate_reply_metadata: true
+              })
+              tweetID = tweet.data.id_str
+            }
+            else {
+              if (eventLog.returnValues._status === "2") {
+
+                const file = fs.readFileSync('./assets/erc20.jpg', { encoding: 'base64' })
+                const media = await twitterClient.post('media/upload', {
+                  media_data: file
+                })
+
+                tweet = await twitterClient.post('statuses/update', {
+                  status: `${token.name} has requested an ERC20 Compliant Badge. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
+                  in_reply_to_status_id,
+                  auto_populate_reply_metadata: true,
+                  media_ids: [media.data.media_id_string]
+                })
+                tweetID = tweet.data.id_str
+              }
+              else {
+                tweet = await twitterClient.post('statuses/update', {
+                  status: `Someone requested to remove an ERC20 Compliant Badge from ${token.name} with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win, you will take the deposit. \n\nSee the listing here: ${shortenedLink.url}`,
+                  in_reply_to_status_id,
+                  auto_populate_reply_metadata: true
+                })
+                tweetID = tweet.data.id_str
+              }
+            }
+          }
+        }
+        else if (eventLog.event === 'Evidence') {
+          const tx = await web3.eth.getTransaction(eventLog.transactionHash)
+          address = '0x' + tx.input.substr(34,40)
+
+          const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
+          tokenID = tokenQuery.values[0]
+          const token = await t2crInstance.methods.tokens(tokenID).call()
+
+          const tokenThread = await db.findOne({tokenID})
+          if (tokenThread)
+            in_reply_to_status_id = await tokenThread.lastTweetID
+
+          const evidenceURI = eventLog.returnValues._evidence[0] === '/' ? `${IPFS_URL}${eventLog.returnValues._evidence}` : eventLog.returnValues._evidence
+          const evidence = await axios.get(evidenceURI)
+          const evidenceJSON = evidence.data
+
+          let shortenedLink
+
+          if (evidenceJSON.fileURI) {
+            const linkURI = evidenceJSON.fileURI[0] === "/" ? `${IPFS_URL}${evidenceJSON.fileURI}` : evidenceJSON.fileURI
+            shortenedLink = await bitly.shorten(linkURI)
+          }
+          const evidenceTitle = evidenceJSON.title || evidenceJSON.name || ''
+          evidenceJSON.name = evidenceTitle
+          const evidenceDescription = evidenceJSON.description || ''
+
+          if (evidenceTitle.length + evidenceDescription.length > 130) {
+            if (evidenceTitle.length > 20) evidenceJSON.name = evidenceTitle.substr(0,17) + '...'
+            if (evidenceDescription.length > 110) evidenceJSON.description = evidenceDescription.substr(0,107) + '...'
+          }
+
+          const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ERC20_BADGE_ID}/${address}`)
+
+          tweet = await twitterClient.post('statuses/update', {
+            status: `New Evidence for ${token.name}'s ERC20 Compliant Badge: ${evidenceJSON.name}
+            ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
+            \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
+            \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
+            in_reply_to_status_id,
+            auto_populate_reply_metadata: true,
+          })
+          tweetID = tweet.data.id_str
+        }
+      } catch (err) {
+        // duplicate tweet. just move on
+        console.error(err)
+        continue
+      }
+      // update thread id
+      if (tweetID)
+        await db.findOneAndUpdate({tokenID}, {$set: {lastTweetID: tweetID}}, { upsert: true })
+    }
+
     // RULINGS
     for (const eventLog of athenaEvents) {
       let tweetID
@@ -418,8 +578,8 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           })
           tweetID = tweet.data.id_str
         }
-        if (eventLog.returnValues._arbitrable === process.env.BADGE_CONTRACT_ADDRESS) {
-          const address = await badgeInstance.methods.arbitratorDisputeIDToAddress(process.env.ARBITRATOR_CONTRACT_ADDRESS, eventLog.returnValues._disputeID).call()
+        if (eventLog.returnValues._arbitrable === process.env.ETHFINEX_BADGE_ADDRESS) {
+          const address = await ethfinexBadgeInstance.methods.arbitratorDisputeIDToAddress(process.env.ARBITRATOR_CONTRACT_ADDRESS, eventLog.returnValues._disputeID).call()
 
           const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
           tokenID = tokenQuery.values[0]
@@ -433,10 +593,10 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           if (currentRuling === '0')
             continue
 
-          const extraData = await badgeInstance.methods.arbitratorExtraData().call()
+          const extraData = await ethfinexBadgeInstance.methods.arbitratorExtraData().call()
           const appealCost = await athenaInstance.methods.appealCost(eventLog.returnValues._disputeID, extraData).call()
-          const winnerStakeMultiplier = await badgeInstance.methods.winnerStakeMultiplier().call()
-          const divisor = await badgeInstance.methods.MULTIPLIER_DIVISOR().call()
+          const winnerStakeMultiplier = await ethfinexBadgeInstance.methods.winnerStakeMultiplier().call()
+          const divisor = await ethfinexBadgeInstance.methods.MULTIPLIER_DIVISOR().call()
 
           const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
 
@@ -444,6 +604,38 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
           tweet = await twitterClient.post('statuses/update', {
             status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
+            \nSee the listing here: ${shortenedLink.url}`,
+            in_reply_to_status_id,
+            auto_populate_reply_metadata: true
+          })
+          tweetID = tweet.data.id_str
+        }
+        else if (eventLog.returnValues._arbitrable === process.env.ETHFINEX_BADGE_ADDRESS) {
+          const address = await erc20BadgeInstance.methods.arbitratorDisputeIDToAddress(process.env.ARBITRATOR_CONTRACT_ADDRESS, eventLog.returnValues._disputeID).call()
+
+          const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
+          tokenID = tokenQuery.values[0]
+          const token = await t2crInstance.methods.tokens(tokenID).call()
+
+          const tokenThread = await db.findOne({tokenID})
+          if (tokenThread)
+            in_reply_to_status_id = await tokenThread.lastTweetID
+
+          const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID).call()
+          if (currentRuling === '0')
+            continue
+
+          const extraData = await erc20BadgeInstance.methods.arbitratorExtraData().call()
+          const appealCost = await athenaInstance.methods.appealCost(eventLog.returnValues._disputeID, extraData).call()
+          const winnerStakeMultiplier = await erc20BadgeInstance.methods.winnerStakeMultiplier().call()
+          const divisor = await erc20BadgeInstance.methods.MULTIPLIER_DIVISOR().call()
+
+          const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
+
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ERC20_BADGE_ID}/${address}`)
+
+          tweet = await twitterClient.post('statuses/update', {
+            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the ERC20 Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
             \nSee the listing here: ${shortenedLink.url}`,
             in_reply_to_status_id,
             auto_populate_reply_metadata: true
