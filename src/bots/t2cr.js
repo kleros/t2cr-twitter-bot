@@ -261,7 +261,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           tokenID = tokenQuery.values[0]
           const token = await t2crInstance.methods.tokens(tokenID).call()
 
-          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ETHFINEX_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
           // look up to see if this token_id already has a thread
           const tokenThread = await db.findOne({tokenID})
           if (tokenThread)
@@ -368,7 +368,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             if (evidenceDescription.length > 110) evidenceJSON.description = evidenceDescription.substr(0,107) + '...'
           }
 
-          const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+          const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ETHFINEX_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
 
           tweet = await twitterClient.post('statuses/update', {
             status: `New Evidence for ${token.name}'s Ethfinex Compliant Badge: ${evidenceJSON.name}
@@ -415,7 +415,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           tokenID = tokenQuery.values[0]
           const token = await t2crInstance.methods.tokens(tokenID).call()
 
-          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ERC20_BADGE_ID}/${address}`)
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ERC20_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
           // look up to see if this token_id already has a thread
           const tokenThread = await db.findOne({tokenID})
           if (tokenThread)
@@ -521,7 +521,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             if (evidenceDescription.length > 110) evidenceJSON.description = evidenceDescription.substr(0,107) + '...'
           }
 
-          const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ERC20_BADGE_ID}/${address}`)
+          const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ERC20_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
 
           tweet = await twitterClient.post('statuses/update', {
             status: `New Evidence for ${token.name}'s ERC20 Compliant Badge: ${evidenceJSON.name}
@@ -600,7 +600,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
           const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
 
-          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ETHFINEX_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
 
           tweet = await twitterClient.post('statuses/update', {
             status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
@@ -632,7 +632,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
           const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
 
-          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ERC20_BADGE_ID}/${address}`)
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ERC20_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
 
           tweet = await twitterClient.post('statuses/update', {
             status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the ERC20 Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
