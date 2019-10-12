@@ -105,7 +105,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           if (eventLog.returnValues._status === "0") {
             const tokenInfo = await t2crInstance.methods.getTokenInfo(tokenID).call()
             tweet = await twitterClient.post('statuses/update', {
-              status: `${token.name} $${token.ticker} has been ${Number(tokenInfo.numberOfRequests) > 1 ? 'removed' : 'rejected'} from the list. ${
+              status: `#${token.name.replace(/ /g,'')} $${token.ticker} has been ${Number(tokenInfo.numberOfRequests) > 1 ? 'removed' : 'rejected'} from the list. ${
                 eventLog.returnValues._disputed ?
                 `The challenger has won the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH`
                 : ''
@@ -117,7 +117,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           }
           else if (eventLog.returnValues._status == "1") {
             tweet = await twitterClient.post('statuses/update', {
-              status: `${token.name} $${token.ticker} has been accepted into the list. ${
+              status: `#${token.name.replace(/ /g,'')} $${token.ticker} has been accepted into the list. ${
                 eventLog.returnValues._disputed ?
                 `The submitter has taken the challengers deposit of ${prettyWeiToEth(challengerWinnableDeposit)} ETH`
                 : ''
@@ -130,7 +130,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           else {
             if (eventLog.returnValues._disputed && !eventLog.returnValues._appealed) {
               tweet = await twitterClient.post('statuses/update', {
-                status: `Token Challenged! ${token.name} $${token.ticker} is headed to court ${shortenedLink.url}`,
+                status: `Token Challenged! #${token.name.replace(/ /g,'')} $${token.ticker} is headed to court ${shortenedLink.url}`,
                 in_reply_to_status_id,
                 auto_populate_reply_metadata: true
               })
@@ -138,7 +138,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             }
             else if (eventLog.returnValues._disputed && eventLog.returnValues._appealed) {
               tweet = await twitterClient.post('statuses/update', {
-                status: `The ruling on ${token.name} $${token.ticker} has been appealed ${shortenedLink.url}`,
+                status: `The ruling on #${token.name.replace(/ /g,'')} $${token.ticker} has been appealed ${shortenedLink.url}`,
                 in_reply_to_status_id,
                 auto_populate_reply_metadata: true
               })
@@ -163,19 +163,23 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
                 const shortenedTokenLink = await bitly.shorten(`https://etherscan.io/token/${token.addr}`)
 
+                const status = `#${token.name.replace(/ /g,'')} $${token.ticker} requests to be added to the list. Verify the token listing is correct. If you challenge and win you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} #ETH
+                    \nToken Address: ${shortenedTokenLink.url}
+                    \nListing: ${shortenedLink.url}`
+
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `${token.name} $${token.ticker} has requested to be added to the list. Verify that the token listing is correct. If you challenge and win you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH
-                  \nToken Address: ${shortenedTokenLink.url}
-                  \nSee the listing here: ${shortenedLink.url}`,
+                  status,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true,
                   media_ids: [media.data.media_id_string]
                 })
+
+
                 tweetID = tweet.data.id_str
               }
               else {
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `Someone requested to remove ${token.name} $${token.ticker} from the list with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win you will take the deposit
+                  status: `Someone requested to remove #${token.name.replace(/ /g,'')} $${token.ticker} from the list with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win you will take the deposit
                   \nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true
@@ -216,7 +220,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
 
           tweet = await twitterClient.post('statuses/update', {
-            status: `New Evidence for ${token.name}: ${evidenceJSON.name || ''}
+            status: `New Evidence for #${token.name.replace(/ /g,'')}: ${evidenceJSON.name || ''}
             ${evidenceJSON.description ? `\n${evidenceJSON.description}`: ''}
             \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
             \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
@@ -268,7 +272,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             in_reply_to_status_id = await tokenThread.lastTweetID
           if (eventLog.returnValues._status === "0") {
             tweet = await twitterClient.post('statuses/update', {
-              status: `${token.name} has been denied the Ethfinex Compliant Badge. ${
+              status: `#${token.name.replace(/ /g,'')} has been denied the Ethfinex Compliant Badge. ${
                 eventLog.returnValues._disputed ?
                 `The challenger has won the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH`
                 : ''
@@ -281,7 +285,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           else if (eventLog.returnValues._status == "1") {
             if (in_reply_to_status_id) {
               tweet = await twitterClient.post('statuses/update', {
-                status: `${token.name} has been awarded the Ethfinex Compliant Badge. ${
+                status: `#${token.name.replace(/ /g,'')} has been awarded the Ethfinex Compliant Badge. ${
                   eventLog.returnValues._disputed ?
                   `The submitter has taken the challengers deposit of ${prettyWeiToEth(challengerWinnableDeposit)} ETH`
                   : ''
@@ -295,7 +299,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           else {
             if (eventLog.returnValues._disputed && !eventLog.returnValues._appealed) {
               tweet = await twitterClient.post('statuses/update', {
-                status: `Ethfinex Compliant Badge Challenged! ${token.name} is headed to court`,
+                status: `Ethfinex Compliant Badge Challenged! #${token.name.replace(/ /g,'')} is headed to court`,
                 in_reply_to_status_id,
                 auto_populate_reply_metadata: true
               })
@@ -303,7 +307,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             }
             else if (eventLog.returnValues._disputed && eventLog.returnValues._appealed) {
               tweet = await twitterClient.post('statuses/update', {
-                status: `The ruling on the Ethfinex Compliant Badge for ${token.name} has been appealed.`,
+                status: `The ruling on the Ethfinex Compliant Badge for #${token.name.replace(/ /g,'')} has been appealed.`,
                 in_reply_to_status_id,
                 auto_populate_reply_metadata: true
               })
@@ -319,7 +323,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
                 const shortenedTokenLink = await bitly.shorten(`https://etherscan.io/token/${token.addr}`)
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `${token.name} has requested an Ethfinex Compliant Badge. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
+                  status: `#${token.name.replace(/ /g,'')} has requested an Ethfinex Compliant Badge. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true,
                   media_ids: [media.data.media_id_string]
@@ -328,7 +332,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               }
               else {
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `Someone requested to remove an Ethfinex Compliant Badge from ${token.name} with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win, you will take the deposit. \n\nSee the listing here: ${shortenedLink.url}`,
+                  status: `Someone requested to remove an Ethfinex Compliant Badge from #${token.name.replace(/ /g,'')} with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win, you will take the deposit. \n\nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true
                 })
@@ -371,7 +375,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ETHFINEX_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
 
           tweet = await twitterClient.post('statuses/update', {
-            status: `New Evidence for ${token.name}'s Ethfinex Compliant Badge: ${evidenceJSON.name}
+            status: `New Evidence for #${token.name.replace(/ /g,'')}'s Ethfinex Compliant Badge: ${evidenceJSON.name}
             ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
             \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
             \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
@@ -422,7 +426,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             in_reply_to_status_id = await tokenThread.lastTweetID
           if (eventLog.returnValues._status === "0") {
             tweet = await twitterClient.post('statuses/update', {
-              status: `${token.name} has been denied the ERC20 Compliant Badge. ${
+              status: `#${token.name.replace(/ /g,'')} has been denied the ERC20 Compliant Badge. ${
                 eventLog.returnValues._disputed ?
                 `The challenger has won the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH`
                 : ''
@@ -435,7 +439,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           else if (eventLog.returnValues._status == "1") {
             if (in_reply_to_status_id) {
               tweet = await twitterClient.post('statuses/update', {
-                status: `${token.name} has been awarded the ERC20 Compliant Badge. ${
+                status: `#${token.name.replace(/ /g,'')} has been awarded the ERC20 Compliant Badge. ${
                   eventLog.returnValues._disputed ?
                   `The submitter has taken the challengers deposit of ${prettyWeiToEth(challengerWinnableDeposit)} ETH`
                   : ''
@@ -449,7 +453,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           else {
             if (eventLog.returnValues._disputed && !eventLog.returnValues._appealed) {
               tweet = await twitterClient.post('statuses/update', {
-                status: `ERC20 Compliant Badge Challenged! ${token.name} is headed to court`,
+                status: `ERC20 Compliant Badge Challenged! #${token.name.replace(/ /g,'')} is headed to court`,
                 in_reply_to_status_id,
                 auto_populate_reply_metadata: true
               })
@@ -457,7 +461,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             }
             else if (eventLog.returnValues._disputed && eventLog.returnValues._appealed) {
               tweet = await twitterClient.post('statuses/update', {
-                status: `The ruling on the ERC20 Compliant Badge for ${token.name} has been appealed.`,
+                status: `The ruling on the ERC20 Compliant Badge for #${token.name.replace(/ /g,'')} has been appealed.`,
                 in_reply_to_status_id,
                 auto_populate_reply_metadata: true
               })
@@ -472,7 +476,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
                 })
 
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `${token.name} has requested an ERC20 Compliant Badge. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
+                  status: `#${token.name.replace(/ /g,'')} has requested an ERC20 Compliant Badge. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true,
                   media_ids: [media.data.media_id_string]
@@ -481,7 +485,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               }
               else {
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `Someone requested to remove an ERC20 Compliant Badge from ${token.name} with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win, you will take the deposit. \n\nSee the listing here: ${shortenedLink.url}`,
+                  status: `Someone requested to remove an ERC20 Compliant Badge from #${token.name.replace(/ /g,'')} with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win, you will take the deposit. \n\nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true
                 })
@@ -524,7 +528,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ERC20_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
 
           tweet = await twitterClient.post('statuses/update', {
-            status: `New Evidence for ${token.name}'s ERC20 Compliant Badge: ${evidenceJSON.name}
+            status: `New Evidence for #${token.name.replace(/ /g,'')} ERC20 Compliant Badge: ${evidenceJSON.name}
             ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
             \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
             \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
@@ -571,7 +575,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
 
           tweet = await twitterClient.post('statuses/update', {
-            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} listing ${token.name}. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
+            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} listing #${token.name.replace(/ /g,'')}. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
             \nSee the listing here: ${shortenedLink.url}`,
             in_reply_to_status_id,
             auto_populate_reply_metadata: true
@@ -603,7 +607,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ETHFINEX_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
 
           tweet = await twitterClient.post('statuses/update', {
-            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
+            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving #${token.name.replace(/ /g,'')} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
             \nSee the listing here: ${shortenedLink.url}`,
             in_reply_to_status_id,
             auto_populate_reply_metadata: true
@@ -635,7 +639,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${web3.utils.toChecksumAddress(process.env.ERC20_BADGE_ID)}/${web3.utils.toChecksumAddress(address)}`)
 
           tweet = await twitterClient.post('statuses/update', {
-            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the ERC20 Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
+            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving #${token.name.replace(/ /g,'')} the ERC20 Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
             \nSee the listing here: ${shortenedLink.url}`,
             in_reply_to_status_id,
             auto_populate_reply_metadata: true
