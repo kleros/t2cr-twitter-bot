@@ -1,6 +1,5 @@
 const delay = require('delay')
 const Web3 = require('web3')
-const ZeroClientProvider = require('web3-provider-engine/zero')
 
 const bots = [require('./bots/t2cr')]
 const twitterClient = require('./twitter-client')
@@ -16,7 +15,7 @@ const run = async bot => {
     try {
       await bot(web3, twitterClient, mongoClient)
     } catch (err) {
-      console.error('Bot error: ', err)
+      console.error('Bot error:', err)
     }
     await delay(10000) // Wait 10 seconds before restarting failed bot.
   }
