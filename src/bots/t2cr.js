@@ -190,14 +190,14 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             })
             tweetID = tweet.data.id_str
           } else if (String(t2crEvent.returnValues._status) === '2') {
-            // have to hack it to get the file in the right type. RIP
+            // Have to hack it to get the file in the right type. RIP
             const image = await axios.get(
               (token.symbolMultihash[0] === '/'
                 ? `${IPFS_URL}`
                 : `${process.env.FILE_BASE_URL}/`) + token.symbolMultihash,
               { responseType: 'arraybuffer' }
             )
-            const filePath = `./tmp/test.${
+            const filePath = `./tmp/image.${
               image.headers['content-type'].split('/')[1]
             }`
             fs.writeFileSync(filePath, image.data)
@@ -299,12 +299,12 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           tweetID = tweet.data.id_str
         }
       } catch (err) {
-        // duplicate tweet. just move on
+        // Duplicate tweet. just move on
         console.error(err)
         continue
       }
 
-      // update thread id
+      // Update thread id
       if (tweetID)
         await db.findOneAndUpdate(
           { tokenID },
@@ -462,12 +462,12 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           tweetID = tweet.data.id_str
         }
       } catch (err) {
-        // duplicate tweet. just move on
+        // Duplicate tweet. just move on
         console.error(err)
         continue
       }
 
-      // update thread id
+      // Update thread id
       if (tweetID)
         await db.findOneAndUpdate(
           { tokenID },
@@ -498,7 +498,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
         try {
           if (badgeEvent.event === 'AddressStatusChange') {
-            // get base deposits
+            // Get base deposits
             const [
               extraData,
               divisor,
@@ -720,11 +720,11 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             tweetID = tweet.data.id_str
           }
         } catch (err) {
-          // duplicate tweet. just move on
+          // Duplicate tweet. just move on
           console.error(err)
           continue
         }
-        // update thread id
+        // Update thread id
         if (tweetID)
           await db.findOneAndUpdate(
             { tokenID },
