@@ -14,9 +14,7 @@
   "private": false,
   "scripts": {
     "start": "node -r dotenv-safe/config ./src/index.js",
-    "lint:eslint:fix": "eslint '**/*.js' --fix",
-    "lint:prettier:fix": "prettier-standard --write '**/*.js'",
-    "format": "yarn run lint:eslint:fix && yarn run lint:prettier:fix",
+    "format": "eslint '**/*.js' --fix",
     "release": "standard-version"
   },
   "devDependencies": {
@@ -33,7 +31,6 @@
     "eslint-plugin-unicorn": "^23.0.0",
     "husky": "^4.3.0",
     "prettier": "^2.2.1",
-    "prettier-standard": "^16.4.1",
     "standard-version": "^9.0.0"
   },
   "dependencies": {

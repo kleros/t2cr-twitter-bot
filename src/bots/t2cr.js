@@ -36,19 +36,19 @@ module.exports = async (web3, twitterClient, mongoClient) => {
   const badgeAddressToTitle = badgesInfo.reduce(
     (prev, curr) => ({
       ...prev,
-      [toChecksumAddress(curr.address)]: curr.title
+      [toChecksumAddress(curr.address)]: curr.title,
     }),
     {}
   )
   const badgeAddressToInstance = badgeInstances.reduce(
     (prev, curr) => ({
       ...prev,
-      [toChecksumAddress(curr.options.address)]: curr
+      [toChecksumAddress(curr.options.address)]: curr,
     }),
     {}
   )
 
-  const prettyWeiToEth = weiAmount => {
+  const prettyWeiToEth = (weiAmount) => {
     const ethString = web3.utils.fromWei(weiAmount)
     // Only show up to 4 decimal places worth
     const splitAmounts = ethString.split('.')
@@ -77,12 +77,12 @@ module.exports = async (web3, twitterClient, mongoClient) => {
     const currentBlock = await web3.eth.getBlockNumber()
     const t2crEvents = await t2crInstance.getPastEvents('allEvents', {
       fromBlock: lastBlock,
-      toBlock: currentBlock
+      toBlock: currentBlock,
     })
 
     console.info({
       fromBlock: lastBlock,
-      toBlock: currentBlock
+      toBlock: currentBlock,
     })
 
     // Token Events
@@ -93,6 +93,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
       let in_reply_to_status_id
       let tokenID
       let tweetID
+      let status
 
       try {
         if (t2crEvent.event === 'TokenStatusChange') {
@@ -102,13 +103,13 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             divisor,
             sharedStakeMultiplier,
             challengerBaseDeposit,
-            requesterBaseDeposit
+            requesterBaseDeposit,
           ] = await Promise.all([
             t2crInstance.methods.arbitratorExtraData().call(),
             t2crInstance.methods.MULTIPLIER_DIVISOR().call(),
             t2crInstance.methods.sharedStakeMultiplier().call(),
             t2crInstance.methods.challengerBaseDeposit().call(),
-            t2crInstance.methods.requesterBaseDeposit().call()
+            t2crInstance.methods.requesterBaseDeposit().call(),
           ])
 
           const arbitrationCost = await klerosInstance.methods
@@ -139,59 +140,64 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             const tokenInfo = await t2crInstance.methods
               .getTokenInfo(tokenID)
               .call()
+
+            status = `#${token.name.replace(/ /g, '')} $${
+              token.ticker
+            } has been ${
+              Number(tokenInfo.numberOfRequests) > 1 ? 'removed' : 'rejected'
+            }. ${
+              t2crEvent.returnValues._disputed
+                ? `The challenger has won the deposit of ${prettyWeiToEth(
+                    requesterWinnableDeposit
+                  )} ETH`
+                : ''
+            }`
             tweet = await twitterClient.post('statuses/update', {
-              status: `#${token.name.replace(/ /g, '')} $${
-                token.ticker
-              } has been ${
-                Number(tokenInfo.numberOfRequests) > 1 ? 'removed' : 'rejected'
-              } from the list. ${
-                t2crEvent.returnValues._disputed
-                  ? `The challenger has won the deposit of ${prettyWeiToEth(
-                      requesterWinnableDeposit
-                    )} ETH`
-                  : ''
-              }`,
+              status,
               in_reply_to_status_id,
-              auto_populate_reply_metadata: true
+              auto_populate_reply_metadata: true,
             })
             tweetID = tweet.data.id_str
           } else if (String(t2crEvent.returnValues._status) === '1') {
+            status = `#${token.name.replace(/ /g, '')} $${
+              token.ticker
+            } has been accepted into the list. ${
+              t2crEvent.returnValues._disputed
+                ? `The submitter has taken the challengers deposit of ${prettyWeiToEth(
+                    challengerWinnableDeposit
+                  )} ETH`
+                : ''
+            }`
             tweet = await twitterClient.post('statuses/update', {
-              status: `#${token.name.replace(/ /g, '')} $${
-                token.ticker
-              } has been accepted into the list. ${
-                t2crEvent.returnValues._disputed
-                  ? `The submitter has taken the challengers deposit of ${prettyWeiToEth(
-                      challengerWinnableDeposit
-                    )} ETH`
-                  : ''
-              }`,
+              status,
               in_reply_to_status_id,
-              auto_populate_reply_metadata: true
+              auto_populate_reply_metadata: true,
             })
             tweetID = tweet.data.id_str
           } else if (
             t2crEvent.returnValues._disputed &&
             !t2crEvent.returnValues._appealed
           ) {
+            status = `Token Challenged! #${token.name.replace(/ /g, '')} $${
+              token.ticker
+            } is headed to court ${shortenedLink.url}`
             tweet = await twitterClient.post('statuses/update', {
-              status: `Token Challenged! #${token.name.replace(/ /g, '')} $${
-                token.ticker
-              } is headed to court ${shortenedLink.url}`,
+              status,
               in_reply_to_status_id,
-              auto_populate_reply_metadata: true
+              auto_populate_reply_metadata: true,
             })
             tweetID = tweet.data.id_str
           } else if (
             t2crEvent.returnValues._disputed &&
             t2crEvent.returnValues._appealed
           ) {
+            status = `The ruling on #${token.name.replace(/ /g, '')} $${
+              token.ticker
+            } has been appealed ${shortenedLink.url}`
             tweet = await twitterClient.post('statuses/update', {
-              status: `The ruling on #${token.name.replace(/ /g, '')} $${
-                token.ticker
-              } has been appealed ${shortenedLink.url}`,
+              status,
               in_reply_to_status_id,
-              auto_populate_reply_metadata: true
+              auto_populate_reply_metadata: true,
             })
             tweetID = tweet.data.id_str
           } else if (String(t2crEvent.returnValues._status) === '2') {
@@ -202,13 +208,14 @@ module.exports = async (web3, twitterClient, mongoClient) => {
                 : `${process.env.FILE_BASE_URL}/`) + token.symbolMultihash,
               { responseType: 'arraybuffer' }
             )
+            if (!fs.existsSync('./tmp')) fs.mkdirSync('./tmp')
             const filePath = `./tmp/image.${
               image.headers['content-type'].split('/')[1]
             }`
             fs.writeFileSync(filePath, image.data)
             const file = fs.readFileSync(filePath, { encoding: 'base64' })
             const media = await twitterClient.post('media/upload', {
-              media_data: file
+              media_data: file,
             })
             fs.unlinkSync(filePath)
 
@@ -216,9 +223,9 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               `https://etherscan.io/token/${token.addr}`
             )
 
-            const status = `#${token.name.replace(/ /g, '')} $${
+            status = `#${token.name.replace(/ /g, '')} $${
               token.ticker
-            } requests to be added to the list. Verify the token listing is correct. If you challenge and win you will take the deposit of ${prettyWeiToEth(
+            } submitted. Verify the it for a chance to win ${prettyWeiToEth(
               requesterWinnableDeposit
             )} #ETH
                     \nToken Address: ${shortenedTokenLink.url}
@@ -228,23 +235,22 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               status,
               in_reply_to_status_id,
               auto_populate_reply_metadata: true,
-              media_ids: [media.data.media_id_string]
+              media_ids: [media.data.media_id_string],
             })
 
             tweetID = tweet.data.id_str
           } else {
+            status = `Someone requested to remove #${token.name.replace(
+              / /g,
+              ''
+            )} $${token.ticker} with a deposit of ${prettyWeiToEth(
+              requesterWinnableDeposit
+            )} ETH. Verify it for a chance to win the deposit
+                \nSee the listing here: ${shortenedLink.url}`
             tweet = await twitterClient.post('statuses/update', {
-              status: `Someone requested to remove #${token.name.replace(
-                / /g,
-                ''
-              )} $${
-                token.ticker
-              } from the list with a deposit of ${prettyWeiToEth(
-                requesterWinnableDeposit
-              )} ETH. If you challenge the removal and win you will take the deposit
-                  \nSee the listing here: ${shortenedLink.url}`,
+              status,
               in_reply_to_status_id,
-              auto_populate_reply_metadata: true
+              auto_populate_reply_metadata: true,
             })
             tweetID = tweet.data.id_str
           }
@@ -290,22 +296,25 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             `https://tokens.kleros.io/token/${tokenID}`
           )
 
+          status = `New Evidence for #${token.name.replace(/ /g, '')}: ${
+            evidenceJSON.name || ''
+          }
+          ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
+          \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
+          \n\nSee Full Evidence: ${shortenedTokenLink.url}`
+
+          console.info('TODO')
           tweet = await twitterClient.post('statuses/update', {
-            status: `New Evidence for #${token.name.replace(
-              / /g,
-              ''
-            )}: ${evidenceJSON.name || ''}
-            ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
-            \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
-            \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
+            status,
             in_reply_to_status_id,
-            auto_populate_reply_metadata: true
+            auto_populate_reply_metadata: true,
           })
           tweetID = tweet.data.id_str
         }
       } catch (err) {
         // Duplicate tweet. just move on
         console.error(err)
+        console.error('Tweet content:', status)
         continue
       }
 
@@ -321,7 +330,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
     console.info('Checking for new kleros events...')
     const klerosEvents = await klerosInstance.getPastEvents('AppealPossible', {
       fromBlock: lastBlock,
-      toBlock: currentBlock
+      toBlock: currentBlock,
     })
 
     // RULINGS
@@ -330,6 +339,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
       let tweetID
       let in_reply_to_status_id
       let tokenID
+      let status
       try {
         // Detect if it is a t2cr or a badge event or neither.
         if (
@@ -375,18 +385,20 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             `https://tokens.kleros.io/token/${tokenID}`
           )
 
+          status = `Jurors have ruled ${
+            String(currentRuling) === '1' ? 'for' : 'against'
+          } listing #${token.name.replace(
+            / /g,
+            ''
+          )}. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(
+            maxFee
+          )} ETH.
+          \nSee the listing here: ${shortenedLink.url}`
+          console.info('TODO')
           const tweet = await twitterClient.post('statuses/update', {
-            status: `Jurors have ruled ${
-              String(currentRuling) === '1' ? 'for' : 'against'
-            } listing #${token.name.replace(
-              / /g,
-              ''
-            )}. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(
-              maxFee
-            )} ETH.
-            \nSee the listing here: ${shortenedLink.url}`,
+            status,
             in_reply_to_status_id,
-            auto_populate_reply_metadata: true
+            auto_populate_reply_metadata: true,
           })
           tweetID = tweet.data.id_str
         }
@@ -453,24 +465,27 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               toChecksumAddress(badgeContractInstance.options.address)
             ]
 
+          status = `Jurors have ruled ${
+            String(currentRuling) === '1' ? 'for' : 'against'
+          } giving #${token.name.replace(
+            / /g,
+            ''
+          )} the ${badgeTitle} Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(
+            maxFee
+          )} ETH.
+          \nSee the listing here: ${shortenedLink.url}`
+          console.info('TODO')
           const tweet = await twitterClient.post('statuses/update', {
-            status: `Jurors have ruled ${
-              String(currentRuling) === '1' ? 'for' : 'against'
-            } giving #${token.name.replace(
-              / /g,
-              ''
-            )} the ${badgeTitle} Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(
-              maxFee
-            )} ETH.
-            \nSee the listing here: ${shortenedLink.url}`,
+            status,
             in_reply_to_status_id,
-            auto_populate_reply_metadata: true
+            auto_populate_reply_metadata: true,
           })
           tweetID = tweet.data.id_str
         }
       } catch (err) {
         // Duplicate tweet. just move on
         console.error(err)
+        console.error('Tweet content:', status)
         continue
       }
 
@@ -484,10 +499,10 @@ module.exports = async (web3, twitterClient, mongoClient) => {
     }
 
     const badgesEvents = await Promise.all(
-      badgeInstances.map(badgeInstance =>
+      badgeInstances.map((badgeInstance) =>
         badgeInstance.getPastEvents('allEvents', {
           fromBlock: lastBlock,
-          toBlock: currentBlock
+          toBlock: currentBlock,
         })
       )
     )
@@ -504,6 +519,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           badgeAddressToInstance[toChecksumAddress(badgeEvent.address)]
         const badgeTitle =
           badgeAddressToTitle[toChecksumAddress(badgeEvent.address)]
+        let status
 
         try {
           if (badgeEvent.event === 'AddressStatusChange') {
@@ -513,13 +529,13 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               divisor,
               sharedStakeMultiplier,
               challengerBaseDeposit,
-              requesterBaseDeposit
+              requesterBaseDeposit,
             ] = await Promise.all([
               badgeContractInstance.methods.arbitratorExtraData().call(),
               badgeContractInstance.methods.MULTIPLIER_DIVISOR().call(),
               badgeContractInstance.methods.sharedStakeMultiplier().call(),
               badgeContractInstance.methods.challengerBaseDeposit().call(),
-              badgeContractInstance.methods.requesterBaseDeposit().call()
+              badgeContractInstance.methods.requesterBaseDeposit().call(),
             ])
 
             const arbitrationCost = await klerosInstance.methods
@@ -562,100 +578,113 @@ module.exports = async (web3, twitterClient, mongoClient) => {
             if (tokenThread)
               in_reply_to_status_id = await tokenThread.lastTweetID
             if (String(badgeEvent.returnValues._status) === '0') {
+              status = `#${token.name.replace(
+                / /g,
+                ''
+              )} has been denied the ${badgeTitle} Badge. ${
+                badgeEvent.returnValues._disputed
+                  ? `The challenger has won the deposit of ${prettyWeiToEth(
+                      requesterWinnableDeposit
+                    )} ETH`
+                  : ''
+              }`
+
               tweet = await twitterClient.post('statuses/update', {
-                status: `#${token.name.replace(
-                  / /g,
-                  ''
-                )} has been denied the ${badgeTitle} Badge. ${
-                  badgeEvent.returnValues._disputed
-                    ? `The challenger has won the deposit of ${prettyWeiToEth(
-                        requesterWinnableDeposit
-                      )} ETH`
-                    : ''
-                }`,
+                status,
                 in_reply_to_status_id,
-                auto_populate_reply_metadata: true
+                auto_populate_reply_metadata: true,
               })
               tweetID = tweet.data.id_str
             } else if (String(badgeEvent.returnValues._status) === '1') {
-              if (in_reply_to_status_id)
+              if (in_reply_to_status_id) {
+                status = `#${token.name.replace(
+                  / /g,
+                  ''
+                )} has been awarded the ${badgeTitle} Badge. ${
+                  badgeEvent.returnValues._disputed
+                    ? `The submitter has taken the challengers deposit of ${prettyWeiToEth(
+                        challengerWinnableDeposit
+                      )} ETH`
+                    : ''
+                }`
+
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `#${token.name.replace(
-                    / /g,
-                    ''
-                  )} has been awarded the ${badgeTitle} Badge. ${
-                    badgeEvent.returnValues._disputed
-                      ? `The submitter has taken the challengers deposit of ${prettyWeiToEth(
-                          challengerWinnableDeposit
-                        )} ETH`
-                      : ''
-                  }`,
+                  status,
                   in_reply_to_status_id,
-                  auto_populate_reply_metadata: true
+                  auto_populate_reply_metadata: true,
                 })
+              }
 
               tweetID = tweet.data.id_str
             } else if (
               badgeEvent.returnValues._disputed &&
               !badgeEvent.returnValues._appealed
             ) {
+              status = `${badgeTitle} Badge Challenged! #${token.name.replace(
+                / /g,
+                ''
+              )} is headed to court`
+
               tweet = await twitterClient.post('statuses/update', {
-                status: `${badgeTitle} Badge Challenged! #${token.name.replace(
-                  / /g,
-                  ''
-                )} is headed to court`,
+                status,
                 in_reply_to_status_id,
-                auto_populate_reply_metadata: true
+                auto_populate_reply_metadata: true,
               })
               tweetID = tweet.data.id_str
             } else if (
               badgeEvent.returnValues._disputed &&
               badgeEvent.returnValues._appealed
             ) {
+              status = `The ruling on the ${badgeTitle} Badge for #${token.name.replace(
+                / /g,
+                ''
+              )} has been appealed.`
+
               tweet = await twitterClient.post('statuses/update', {
-                status: `The ruling on the ${badgeTitle} Badge for #${token.name.replace(
-                  / /g,
-                  ''
-                )} has been appealed.`,
+                status,
                 in_reply_to_status_id,
-                auto_populate_reply_metadata: true
+                auto_populate_reply_metadata: true,
               })
               tweetID = tweet.data.id_str
             } else if (String(badgeEvent.returnValues._status) === '2') {
               const file = fs.readFileSync(
                 `./assets/${toChecksumAddress(badgeEvent.options.address)}.jpg`,
                 {
-                  encoding: 'base64'
+                  encoding: 'base64',
                 }
               )
               const media = await twitterClient.post('media/upload', {
-                media_data: file
+                media_data: file,
               })
 
+              status = `#${token.name.replace(
+                / /g,
+                ''
+              )} has requested the ${badgeTitle} Badge. Verify it meets the criteria for a chance to win ${prettyWeiToEth(
+                requesterWinnableDeposit
+              )} ETH. \n\nSee the listing here: ${shortenedLink.url}`
+
               tweet = await twitterClient.post('statuses/update', {
-                status: `#${token.name.replace(
-                  / /g,
-                  ''
-                )} has requested an ${badgeTitle} Badge. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(
-                  requesterWinnableDeposit
-                )} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
+                status,
                 in_reply_to_status_id,
                 auto_populate_reply_metadata: true,
-                media_ids: [media.data.media_id_string]
+                media_ids: [media.data.media_id_string],
               })
               tweetID = tweet.data.id_str
             } else {
+              status = `Someone requested to remove an ${badgeTitle} Badge from #${token.name.replace(
+                / /g,
+                ''
+              )} with a deposit of ${prettyWeiToEth(
+                requesterWinnableDeposit
+              )} ETH. If you challenge the removal and win, you will take the deposit. \n\nSee the listing here: ${
+                shortenedLink.url
+              }`
+
               tweet = await twitterClient.post('statuses/update', {
-                status: `Someone requested to remove an ${badgeTitle} Badge from #${token.name.replace(
-                  / /g,
-                  ''
-                )} with a deposit of ${prettyWeiToEth(
-                  requesterWinnableDeposit
-                )} ETH. If you challenge the removal and win, you will take the deposit. \n\nSee the listing here: ${
-                  shortenedLink.url
-                }`,
+                status,
                 in_reply_to_status_id,
-                auto_populate_reply_metadata: true
+                auto_populate_reply_metadata: true,
               })
               tweetID = tweet.data.id_str
             }
@@ -715,22 +744,24 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               )}/${toChecksumAddress(tokenAddress)}`
             )
 
+            status = `New Evidence for #${token.name.replace(
+              / /g,
+              ''
+            )}'s ${badgeTitle} Badge: ${evidenceJSON.name}
+            ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
+            \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
+            \n\nSee Full Evidence: ${shortenedTokenLink.url}`
             tweet = await twitterClient.post('statuses/update', {
-              status: `New Evidence for #${token.name.replace(
-                / /g,
-                ''
-              )}'s ${badgeTitle} Badge: ${evidenceJSON.name}
-              ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
-              \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
-              \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
+              status,
               in_reply_to_status_id,
-              auto_populate_reply_metadata: true
+              auto_populate_reply_metadata: true,
             })
             tweetID = tweet.data.id_str
           }
         } catch (err) {
           // Duplicate tweet. just move on
           console.error(err)
+          console.error('Tweet content:', status)
           continue
         }
         // Update thread id

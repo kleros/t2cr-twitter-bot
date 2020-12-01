@@ -8,7 +8,7 @@ module.exports = {
     'plugin:unicorn/recommended', // unicorn
     'plugin:prettier/recommended', // prettier overrides
     'prettier/standard',
-    'plugin:promise/recommended'
+    'plugin:promise/recommended',
   ],
 
   // Rule Overrides
@@ -22,15 +22,15 @@ module.exports = {
         ignoreRestSiblings: false,
         caughtErrors: 'all',
         varsIgnorePattern: '^_',
-        argsIgnorePattern: '^_'
-      }
+        argsIgnorePattern: '^_',
+      },
     ],
     'prefer-const': 2,
     'arrow-body-style': [2, 'as-needed'],
     curly: [2, 'multi'],
     'padding-line-between-statements': [
       2,
-      { blankLine: 'never', prev: 'import', next: 'import' }
+      { blankLine: 'never', prev: 'import', next: 'import' },
     ],
     'no-useless-concat': 2,
     'prefer-template': 2,
@@ -63,8 +63,8 @@ module.exports = {
       2,
       {
         semi: false,
-        singleQuote: true
-      }
-    ]
-  }
+        singleQuote: true,
+      },
+    ],
+  },
 }

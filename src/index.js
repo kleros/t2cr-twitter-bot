@@ -6,7 +6,7 @@ const twitterClient = require('./twitter-client')
 const _mongoClient = require('./mongo-client')
 
 // Run bots and restart them on failures.
-const run = async bot => {
+const run = async (bot) => {
   // Create an instance of `web3` and `batched-send` for each bot.
   const web3 = new Web3(process.env.WEB3_PROVIDER_URL)
   const mongoClient = await _mongoClient()
