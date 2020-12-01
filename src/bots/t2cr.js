@@ -74,16 +74,21 @@ module.exports = async (web3, twitterClient, mongoClient) => {
   // Bitly link shortening
   const bitly = new BitlyClient(process.env.BITLY_TOKEN, {})
   while (true) {
-    await delay(1000 * 60 * 5) // Run every 5 minutes.
-    console.info('Checking for new events...')
     const currentBlock = await web3.eth.getBlockNumber()
     const t2crEvents = await t2crInstance.getPastEvents('allEvents', {
       fromBlock: lastBlock,
       toBlock: currentBlock
     })
 
+    console.info({
+      fromBlock: lastBlock,
+      toBlock: currentBlock
+    })
+
     // Token Events
+    console.info('Checking for new t2cr events...')
     for (const t2crEvent of t2crEvents) {
+      console.info(' Got T2CR event. Handling.')
       let tweet
       let in_reply_to_status_id
       let tokenID
@@ -313,6 +318,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
         )
     }
 
+    console.info('Checking for new kleros events...')
     const klerosEvents = await klerosInstance.getPastEvents('AppealPossible', {
       fromBlock: lastBlock,
       toBlock: currentBlock
@@ -320,6 +326,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
     // RULINGS
     for (const klerosEvent of klerosEvents) {
+      console.info(' Got kleros event. Handling.')
       let tweetID
       let in_reply_to_status_id
       let tokenID
@@ -485,8 +492,10 @@ module.exports = async (web3, twitterClient, mongoClient) => {
       )
     )
 
+    console.info('Checking badges events...')
     for (const badgeEvents of badgesEvents)
       for (const badgeEvent of badgeEvents) {
+        console.info('Got badge event. Handling')
         let tweet
         let in_reply_to_status_id
         let tokenID
@@ -733,11 +742,14 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           )
       }
 
-    db.findOneAndUpdate(
+    await db.findOneAndUpdate(
       { tokenID: '0x0' },
       { $set: { lastBlock: currentBlock } },
       { upsert: true }
     )
     lastBlock = currentBlock + 1
+
+    console.info('Done... Waiting for new check.')
+    await delay(1000 * 60 * 5) // Run every 5 minutes.
   }
 }
