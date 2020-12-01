@@ -11,6 +11,7 @@ const T2CR_MONGO_COLLECTION = 'tokens'
 const IPFS_URL = 'https://ipfs.kleros.io'
 
 module.exports = async (web3, twitterClient, mongoClient) => {
+  console.info('Starting twitter bot')
   const { toChecksumAddress } = web3.utils
 
   const T2CR_CONTRACT_ADDRESS = toChecksumAddress(
@@ -74,6 +75,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
   const bitly = new BitlyClient(process.env.BITLY_TOKEN, {})
   while (true) {
     await delay(1000 * 60 * 5) // Run every 5 minutes.
+    console.info('Checking for new events...')
     const currentBlock = await web3.eth.getBlockNumber()
     const t2crEvents = await t2crInstance.getPastEvents('allEvents', {
       fromBlock: lastBlock,
