@@ -303,7 +303,6 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
           \n\nSee Full Evidence: ${shortenedTokenLink.url}`
 
-          console.info('TODO')
           tweet = await twitterClient.post('statuses/update', {
             status,
             in_reply_to_status_id,
@@ -386,15 +385,14 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           )
 
           status = `Jurors have ruled ${
-            String(currentRuling) === '1' ? 'for' : 'against'
-          } listing #${token.name.replace(
+            String(currentRuling) === '1' ? 'to accept' : 'against'
+          } the request #${token.name.replace(
             / /g,
             ''
           )}. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(
             maxFee
           )} ETH.
           \nSee the listing here: ${shortenedLink.url}`
-          console.info('TODO')
           const tweet = await twitterClient.post('statuses/update', {
             status,
             in_reply_to_status_id,
@@ -467,14 +465,13 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
           status = `Jurors have ruled ${
             String(currentRuling) === '1' ? 'for' : 'against'
-          } giving #${token.name.replace(
+          } the request on #${token.name.replace(
             / /g,
             ''
           )} the ${badgeTitle} Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(
             maxFee
           )} ETH.
           \nSee the listing here: ${shortenedLink.url}`
-          console.info('TODO')
           const tweet = await twitterClient.post('statuses/update', {
             status,
             in_reply_to_status_id,
