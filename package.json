@@ -34,7 +34,7 @@
     "standard-version": "^9.0.0"
   },
   "dependencies": {
-    "axios": "^0.21.1",
+    "axios": "^0.21.2",
     "bitly": "^6.0.8",
     "delay": "^4.1.0",
     "dotenv-safe": "^8.2.0",
